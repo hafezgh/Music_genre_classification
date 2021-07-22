@@ -1,20 +1,68 @@
-from utils.miscellaneous import manual_seed
-from model import CRNN
-import torch.nn as nn
 import torch
-import numpy as np
-import gzip
-import pickle
-import time
+DEVICE = 'cuda'
+import math
 import torch.optim as optim
-if (torch.cuda.is_available()):
-    DEVICE = 'cuda'
-else:
-    DEVICE = 'cpu'
+from model import *
+import os
+import copy, gzip, pickle, time
+data_dir = './drive/MyDrive/music_classification/Data'
+classes = os.listdir(data_dir+'/images_original')
 
-def train(hparams, train_loader, val_loader, train_len, val_len, **kwargs):
-    manual_seed(2045)
-    model = CRNN(len(classes), hparams['c'], hparams['h'], hparams['w'], hparams['k'], hparams['filters'],\
+
+def fit(model, train_loader, train_len, optimizer, criterion):
+    model.train()
+    batch_size = train_loader.batch_size
+    n_batches = math.ceil(train_len/batch_size)
+    #print('Batch Size:', batch_size,'Number of Batches:', n_batches)
+    model.train()
+    train_running_loss = 0.0
+    train_running_correct = 0
+    counter = 0
+    total = 0
+    #prog_bar = tqdm(enumerate(train_loader), total=int(train_len/batch_size))
+    for i, data in enumerate(train_loader):
+        counter += 1
+        data, target = data[0].to(DEVICE), data[1].to(DEVICE)
+        total += target.size(0)
+        optimizer.zero_grad()
+        outputs = model(data)
+        loss = criterion(outputs, target)
+        train_running_loss += loss.item()
+        _, preds = torch.max(outputs.data, 1)
+        train_running_correct += (preds == target).sum().item()
+        loss.backward()
+        optimizer.step()
+        
+    train_loss = train_running_loss / counter
+    train_accuracy = 100. * train_running_correct / total
+    return train_loss, train_accuracy
+
+def validate(model, val_loader, val_len, criterion):
+    model.eval()
+    val_running_loss = 0.0
+    val_running_correct = 0
+    counter = 0
+    total = 0
+    batch_size = val_len
+    #prog_bar = tqdm(enumerate(val_loader), total=int(val_len/batch_size))
+    with torch.no_grad():
+        for i, data in enumerate(val_loader):
+            counter += 1
+            data, target = data[0].to(DEVICE), data[1].to(DEVICE)
+            total += target.size(0)
+            outputs = model(data)
+            loss = criterion(outputs, target)
+            
+            val_running_loss += loss.item()
+            _, preds = torch.max(outputs.data, 1)
+            val_running_correct += (preds == target).sum().item()
+        
+        val_loss = val_running_loss / counter
+        val_accuracy = 100. * val_running_correct / total
+        return val_loss, val_accuracy
+
+def train(hparams, train_loader, val_loader, train_len, val_len, checkpoint_path=None, **kwargs):
+    model = CRNN_Base(len(classes), hparams['c'], hparams['h'], hparams['w'], hparams['k'], hparams['filters'],\
                     hparams['poolings'], hparams['dropout_rate'], gru_units=hparams['gru_units'])
     model.to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=hparams['lr'])
@@ -35,9 +83,14 @@ def train(hparams, train_loader, val_loader, train_len, val_len, **kwargs):
         print(f"Train Loss: {train_loss[-1]:.4f}, Train Acc: {train_accuracy[-1]:.2f}")
         print(f'Val Loss: {val_loss[-1]:.4f}, Val Acc: {val_accuracy[-1]:.2f}')
         if 'lr_scheduler' in kwargs.keys() and 'scheduler_state_dict' in checkpoint.keys():
-            print('Learning rate sceduler is active.\n')
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1, verbose=True)
-            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            if kwargs['lr_scheduler'] == True:
+                print('Learning rate sceduler is active.\n')
+                scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1, verbose=True)
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            else:
+                scheduler = False
+        else:
+            scheduler = False
     except:
         print('No checkpoints found! Training will start from the beginning.\n')
         train_loss, train_accuracy = [], []
@@ -46,8 +99,13 @@ def train(hparams, train_loader, val_loader, train_len, val_len, **kwargs):
         scheduler = None
         es = False
         if 'lr_scheduler' in kwargs.keys():
-            print('Learning rate sceduler is active.\n')
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1, verbose=True)
+            if kwargs['lr_scheduler'] == True:
+                print('Learning rate sceduler is active.\n')
+                scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1, verbose=True)
+            else:
+                scheduler = False
+        else:
+            scheduler = False
 
     es = False
     if 'early_stopping' in kwargs.keys():
@@ -82,7 +140,6 @@ def train(hparams, train_loader, val_loader, train_len, val_len, **kwargs):
                 #Saving the model
                 min_val_loss = val_epoch_loss
                 best_model = copy.deepcopy(model.state_dict())
-                #print('Min loss %0.2f' % min_loss)
                 epochs_no_improve = 0
             else:
                 epochs_no_improve += 1
@@ -104,9 +161,11 @@ def train(hparams, train_loader, val_loader, train_len, val_len, **kwargs):
                 }
         if scheduler:
             checkpoint_to_save['scheduler_state_dict'] = scheduler.state_dict()
-        stream = gzip.open('/content/drive/MyDrive/music_classification/checkpoint_crop2.pt', "wb")
-        pickle.dump(checkpoint_to_save, stream)
-        stream.close()
+        ## Saving the model
+        if checkpoint_path != None:
+            stream = gzip.open(checkpoint_path, "wb")
+            pickle.dump(checkpoint_to_save, stream)
+            stream.close()
     end = time.time()
 
     print(f"Training time: {(end-start)/60:.3f} minutes")
