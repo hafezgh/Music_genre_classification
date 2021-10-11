@@ -66,6 +66,7 @@ def plot_confusion_matrix(cm, target_names, title='Confusion matrix', cmap=None,
     plt.ylabel('True label')
     plt.xlabel('Predicted label\naccuracy={:0.2f}; misclass={:0.2f}'.format(accuracy, misclass))
     plt.show()
+    
 def detailed_analysis(model, n_classes, class_names, train_loader, val_loader, test_loader, val_accuracy, train_accuracy, val_loss, train_loss):
     model.eval()
 
