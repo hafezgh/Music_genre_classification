@@ -8,4 +8,4 @@ For convinience you can also use the notebook.
 
 You can find the project report in the repository.
 
-![repository-open-graph-template](https://user-images.githubusercontent.com/41113811/136854009-74075ab0-f48b-4d8c-b2c8-d5476e5a539d.png)
+![repository-open-graph-template](https://37b88ed0-a-62cb3a1a-s-sites.googlegroups.com/site/multigenremusicmovement24/genre-list/classical-music-image1.png?attachauth=ANoY7crRnTQG-Ql5sWQteRLvwUpuIQaFuJkIhqpWwdSTDGs_qaXAwTQC_CuYU7QVFptOkvUdar_75LqKLl6TP00MG87nRJNmHFJ-tieA8zMOnJowkwjccF8RPnWbm-0w2dBApwmk628A30NzkDjtUk2PLTrtt61NMgRkrUF79ENyTzSw51zzGDS2_s3ErS2_bz3g1k_aX6Cv4gevO-_Ch8xMcyVSGH73cbQFmdKs45sPgNR47VvhBey_Sgzwl_IXKiIMa2xE0NoH&attredirects=0)
